@@ -1,6 +1,7 @@
 import gc
 import os
 import json
+import time
 import mlx.core as mx
 from loguru import logger
 from mlx_lm.utils import load
@@ -201,6 +202,18 @@ class MLX_LM:
         if verbose:
             log_debug_prompt(input_prompt)
 
+        # Process the prompt
+        start = time.time()
+        max_msg_len = 0
+
+        def callback(processed, total_tokens):
+            current = time.time()
+            speed = processed / (current - start)
+            msg = f"\rProcessed {processed:6d} tokens ({speed:6.2f} tok/s)"
+            nonlocal max_msg_len
+            max_msg_len = max(max_msg_len, len(msg))
+            logger.info(msg + " " * (max_msg_len - len(msg)))
+
         stream_response = stream_generate(
             self.model,
             self.tokenizer,
@@ -208,7 +221,8 @@ class MLX_LM:
             sampler=sampler,
             max_tokens=max_tokens,
             prompt_cache=self.prompt_cache,
-            logits_processors=logits_processors
+            logits_processors=logits_processors,
+            prompt_progress_callback=callback
         )
         if stream:
             return stream_response
