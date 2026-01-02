@@ -1,6 +1,7 @@
 import gc
 import os
 import json
+import time
 import mlx.core as mx
 from loguru import logger
 from mlx_lm.utils import load
@@ -37,6 +38,9 @@ class MLX_LM:
             self.pad_token_id = self.tokenizer.pad_token_id
             self.bos_token = self.tokenizer.bos_token
             self.model_type = self.model.model_type
+            #self.max_kv_size = context_length
+            model_cache = hasattr(self.model, "make_cache")
+            logger.info(f"new prompt cache size={context_length}, model_cache={model_cache}")
             self.prompt_cache = make_prompt_cache(self.model, context_length)
             self.outlines_tokenizer = OutlinesTransformerTokenizer(self.tokenizer)
             if chat_template_file:
@@ -186,6 +190,8 @@ class MLX_LM:
             )
         
         mx.random.seed(seed)
+        #logger.info(f"new prompt cache size={self.max_kv_size}")
+        #prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
         
         input_prompt = self.tokenizer.apply_chat_template(
             messages,
@@ -201,6 +207,14 @@ class MLX_LM:
         if verbose:
             log_debug_prompt(input_prompt)
 
+        # prompt process debug log
+        start = time.time()
+        def callback(processed, total_tokens):
+            current = time.time()
+            speed = processed / (current - start)
+            logger.info(f"Processed {processed:6d}/{total_tokens} tokens ({speed:6.2f} tok/s)")
+
+        # Process the prompt
         stream_response = stream_generate(
             self.model,
             self.tokenizer,
@@ -208,7 +222,8 @@ class MLX_LM:
             sampler=sampler,
             max_tokens=max_tokens,
             prompt_cache=self.prompt_cache,
-            logits_processors=logits_processors
+            logits_processors=logits_processors,
+            prompt_progress_callback=callback
         )
         if stream:
             return stream_response
