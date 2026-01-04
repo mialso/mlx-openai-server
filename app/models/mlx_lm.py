@@ -40,8 +40,9 @@ class MLX_LM:
             self.model_type = self.model.model_type
             #self.max_kv_size = context_length
             model_cache = hasattr(self.model, "make_cache")
-            logger.info(f"new prompt cache size={context_length}, model_cache={model_cache}")
-            self.prompt_cache = make_prompt_cache(self.model, context_length)
+            model_layers = len(self.model.layers)
+            logger.info(f"new prompt cache size={context_length}, model_cache={model_cache} model_layers={model_layers}")
+            self.prompt_cache = make_prompt_cache(self.model)
             self.outlines_tokenizer = OutlinesTransformerTokenizer(self.tokenizer)
             if chat_template_file:
                 if not os.path.exists(chat_template_file):
